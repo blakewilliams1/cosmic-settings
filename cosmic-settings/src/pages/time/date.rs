@@ -36,6 +36,7 @@ pub struct Page {
     first_day_of_week: usize,
     military_time: bool,
     show_seconds: bool,
+    show_weekday: bool,
     ntp_enabled: bool,
     show_date_in_top_panel: bool,
     timezone_context: bool,
@@ -73,6 +74,16 @@ impl Default for Page {
                 false
             });
 
+        let show_weekday = cosmic_applet_config
+            .get("show_weekday")
+            .unwrap_or_else(|err| {
+                if err.is_err() {
+                    error!(?err, "Failed to read config 'show_weekday'");
+                }
+
+                false
+            });
+
         let first_day_of_week = cosmic_applet_config
             .get("first_day_of_week")
             .unwrap_or_else(|err| {
@@ -103,6 +114,7 @@ impl Default for Page {
             local_time: None,
             military_time,
             show_seconds,
+            show_weekday,
             ntp_enabled: false,
             show_date_in_top_panel,
             timezone: None,
@@ -213,6 +225,15 @@ impl Page {
 
                 if let Err(err) = self.cosmic_applet_config.set("show_seconds", enable) {
                     error!(?err, "Failed to set config 'show_seconds'");
+                }
+            }
+
+            Message::ShowWeekday(enable) => {
+                self.show_weekday = enable;
+                self.update_local_time();
+
+                if let Err(err) = self.cosmic_applet_config.set("show_weekday", enable) {
+                    error!(?err, "Failed to set config 'show_weekday'");
                 }
             }
 
@@ -357,6 +378,7 @@ pub enum Message {
     Error(String),
     MilitaryTime(bool),
     ShowSeconds(bool),
+    ShowWeekday(bool),
     None,
     FirstDayOfWeek(usize),
     Refresh(Info),
@@ -395,6 +417,7 @@ fn format() -> Section<crate::pages::Message> {
     crate::slab!(descriptions {
         military = fl!("time-format", "twenty-four");
         show_seconds = fl!("time-format", "show-seconds");
+        show_weekday = fl!("time-format", "show-weekday");
         first = fl!("time-format", "first");
         show_date = fl!("time-format", "show-date");
     });
@@ -414,6 +437,11 @@ fn format() -> Section<crate::pages::Message> {
                 .add(
                     settings::item::builder(&section.descriptions[show_seconds])
                         .toggler(page.show_seconds, Message::ShowSeconds),
+                )
+                // Show abbreviated day of week
+                .add(
+                    settings::item::builder(&section.descriptions[show_weekday])
+                        .toggler(page.show_weekday, Message::ShowWeekday),
                 )
                 // First day of week
                 .add(
@@ -559,5 +587,24 @@ fn get_locale_default_first_day() -> usize {
         Weekday::Friday => 4,
         Weekday::Saturday => 5,
         Weekday::Sunday => 6,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_show_weekday_message_update() {
+        let mut test_page = Page::default();
+
+        let _ = test_page.update(Message::ShowWeekday(true));
+        let show_weekday_true = test_page.show_weekday;
+
+        let _ = test_page.update(Message::ShowWeekday(false));
+        let show_weekday_false = test_page.show_weekday;
+
+        assert!(show_weekday_true);
+        assert!(!show_weekday_false);
     }
 }
