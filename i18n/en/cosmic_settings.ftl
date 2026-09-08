@@ -955,6 +955,7 @@ time-zone = Time zone
 time-format = Date & time format
     .twenty-four = 24-hour time
     .show-seconds = Show seconds
+    .show-weekday = Show day of week
     .first = First day of week
     .show-date = Show date in the time applet
     .friday = Friday
